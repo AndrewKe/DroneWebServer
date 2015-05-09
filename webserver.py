@@ -1,11 +1,12 @@
 import cherrypy
 import picamera
+from droneapi.lib import VehicleMode
 from pymavlink import mavutil
 import math
 from time import sleep
 
 class Web(object):
-    
+
     def __init__(self):
         # First get an instance of the API endpoint
         api = local_connect()
@@ -14,8 +15,8 @@ class Web(object):
         #self.camera = picamera.PiCamera()
         #self.camera.vflip = True
         #self.camera.hflip = True
-    
-    
+
+
     #****WGCS Section*****************
     @cherrypy.expose
     def index(self, param = ""):
@@ -27,62 +28,88 @@ class Web(object):
         #configure flight mode
         mode = "%s" % self.v.mode
         mode = mode[12:]
-        
-        #configure the yaw, pitch, and roll values
-        attitude = "%s" % self.v.attitude
-        attitude = attitude[9:]
-        attitudes = attitude.split(",")
-        
-        
+
+        #Configure attitude values
+        pitch = float("{0:.2f}".format(math.degrees(self.v.attitude.pitch)))
+        yaw = float("{0:.2f}".format(math.degrees(self.v.attitude.yaw)))
+        roll = float("{0:.2f}".format(math.degrees(self.v.attitude.roll)))
+
+
+
         #configure gps
         #gps = "%s" % self.v.gps_0
-        
-        
+
+
         return """<html>
-                    <head></head>
+                    <head><meta http-equiv="refresh" content="0.5" ></head>
                         <body>
                             <h1>The Pi Drone's WEB GROUND CONTROL STATION (WGCS)</h1>
                             <p>
                                 FLIGHT MODE: {0}<br>
                                 Set to
-                                <select>
-                                    <option value="stabilize">STABILIZE</option>
-                                    <option value="auto">AUTO</option>
-                                    <option value="loiter">LOITER</option>
-                                    <option value="althold">ALTHOLD</option>
-                                </select><br><br>
-                                {1} <br>
-                                {2} <br>
-                                {3} <br><br>
-                                
+                                <form method="post" action="stabilize">
+                                <button type="submit" method = "post">STABILIZE</button>
+                                </form>
+                                <form method="post" action="althold">
+                                <button type="submit" method = "post">ALT_HOLD</button>
+                                </form>
+                                <form method="post" action="loiter">
+                                <button type="submit" method = "post">LOITER</button>
+                                </form>
+                                <form method="post" action="auto">
+                                <button type="submit" method = "post">AUTO</button>
+                                </form>
+                                Pitch: {1} <br>
+                                Yaw: {2} <br>
+                                Roll: {3} <br><br>
+
                             </p>
                             <form method="post" action="arm">
                                 <button type="submit" method = "post">{4}</button>
                             </form>
-                            <img src="http://www.dji.com/wp-content/uploads/2012/11/features_icon_attractive.png" alt="some_text">
                         </body>
-                </html>""".format(mode, attitudes[0], attitudes[1], attitudes[2],"arm/disarm")
-            
+                </html>""".format(mode, pitch, yaw, roll,"arm/disarm")
+
     @cherrypy.expose
     def arm(self):
         self.v.armed = not self.v.armed
         raise cherrypy.HTTPRedirect("/")
-    
+
     @cherrypy.expose
     def takePicture(self):
         #self.camera.capture('image.jpg')
         cherrypy.log("Picture Taken")
         raise cherrypy.HTTPRedirect("/")
-    
+
+    @cherrypy.expose
+    def stabilize(self):
+        self.v.mode = VehicleMode('STABILIZE')
+        raise cherrypy.HTTPRedirect("/")
+
+    @cherrypy.expose
+    def althold(self):
+        self.v.mode = VehicleMode('ALT_HOLD')
+        raise cherrypy.HTTPRedirect("/")
+
+    @cherrypy.expose
+    def loiter(self):
+        self.v.mode = VehicleMode('LOITER')
+        raise cherrypy.HTTPRedirect("/")
+
+    @cherrypy.expose
+    def auto(self):
+        self.v.mode = VehicleMode('AUTO')
+        raise cherrypy.HTTPRedirect("/")
+
     #******iOS Section *****
-    
+
     #Change mode using /iChangeMode?=[mode]
     #specify mode in ALL CAPS and use the mode command in mavproxy to discover availible modes
     @cherrypy.expose
     def iChangeMode(self, mode = 'STABILIZE'):
         cherrypy.log("Changing mode to " + mode)
         self.v.mode = VehicleMode(mode)
-    
+
     @cherrypy.expose
     def iTakePicture(self):
             #self.camera.capture('image.jpg')
@@ -126,6 +153,12 @@ class Web(object):
         return {"mode": mode, "pitch": pitch, "yaw": yaw, "roll": roll, "armed":armed, "alt": altitude, "groundspeed":groundspeed, "gpsfix": gpsfix, "lat": lat, "lon": lon}
 
 
+
+
+
+
+
+
 # Start web server
 cherrypy.tree.mount(Web())
 cherrypy.config.update({
@@ -136,8 +169,3 @@ cherrypy.config.update({
 
 cherrypy.engine.start()
 cherrypy.engine.block()
-
-
-
-
- 
